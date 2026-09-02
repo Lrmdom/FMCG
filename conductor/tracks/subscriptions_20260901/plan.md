@@ -7,7 +7,7 @@
 - [x] Task: Criar server/services/microstore.ts e9b57de
     - [x] Task: Escrever testes unitários (Red)
     - [x] Task: Implementar geração de URL Microstore (Green)
-- [~] Task: Criar server/services/email.ts
+- [x] Task: Criar server/services/email.ts 6db9301
     - [x] Task: Escrever testes unitários (Red)
     - [x] Task: Implementar envio via Resend (Green)
 - [ ] Task: Conductor - User Manual Verification 'Implementação Serviços' (Protocol in workflow.md)
