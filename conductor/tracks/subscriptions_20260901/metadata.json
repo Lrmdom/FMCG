@@ -1,8 +1,0 @@
-{
-  "track_id": "subscriptions_20260901",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-09-01T22:00:00Z",
-  "updated_at": "2026-09-01T22:00:00Z",
-  "description": "Implementação de serviço de subscrições recorrentes e envio de e-mail"
-}
