@@ -12,6 +12,3 @@
 - [x] Task: Mutações no Commerce Layer (Carrinho) [8470b3e]
 - [x] Task: Conductor - User Manual Verification 'Fundação e Integração' (Protocol in workflow.md) [4567890]
 
-curl -X POST http://localhost:3001/api/cart/items \
-         -H "Content-Type: application/json" \
-     -d '{"cartId": "test-cart-123", "sku": "FMCG-LEI-001", "quantity": 1}'
