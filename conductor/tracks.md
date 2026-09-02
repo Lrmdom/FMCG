@@ -6,3 +6,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Implementação do Core FMCG Vision Service e Integração MCP**
   *Link: [./tracks/core_fmcg_20260901/](./tracks/core_fmcg_20260901/)*
+
+- [~] **Track: Implement R2 Catalog Search**
+  *Link: [./tracks/implement-r2-catalog-search/](./tracks/implement-r2-catalog-search/)*
