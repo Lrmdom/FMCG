@@ -10,7 +10,7 @@
 - [x] Task: Criar server/services/email.ts 6db9301
     - [x] Task: Escrever testes unitários (Red)
     - [x] Task: Implementar envio via Resend (Green)
-- [ ] Task: Conductor - User Manual Verification 'Implementação Serviços' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Implementação Serviços' (Protocol in workflow.md) f657519 [checkpoint: f657519]
 
 ## Fase 2: Endpoint API
 - [ ] Task: Criar `server/routes/subscriptions.ts`
