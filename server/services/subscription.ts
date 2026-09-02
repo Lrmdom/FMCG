@@ -2,8 +2,8 @@ import { CommerceLayer } from '@commercelayer/sdk';
 
 export class SubscriptionService {
   private static cl = CommerceLayer({
-    organization: process.env.CL_SLUG || "fmcg-store",
-    accessToken: process.env.CL_ACCESS_TOKEN || "mock-token",
+    organization: process.env.CL_SLUG || "",
+    accessToken: process.env.CL_ACCESS_TOKEN || "",
   });
 
   public static async createSubscriptionModel(params: {
@@ -11,8 +11,7 @@ export class SubscriptionService {
     skuList: { sku_code: string; quantity: number }[];
     customerEmail: string;
   }) {
-    // Mock para testar fluxo sem token real
-    if (process.env.CL_ACCESS_TOKEN === 'mock-token' || !process.env.CL_ACCESS_TOKEN) {
+    if (!process.env.CL_ACCESS_TOKEN) {
       return { 
         id: 'sub-model-mock-123',
         name: `FMCG Subscription ${params.frequency}`,
