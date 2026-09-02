@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Implementação de serviço de subscrições recorrentes e envio de e-mail**
+- [~] **Track: Implementação de serviço de subscrições recorrentes e envio de e-mail**
   *Link: [./tracks/subscriptions_20260901/](./tracks/subscriptions_20260901/)*
