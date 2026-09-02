@@ -4,9 +4,9 @@
 - [x] Task: Criar `server/services/subscription.ts`
     - [x] Task: Escrever testes unitários (Red)
     - [x] Task: Implementar criação de subscrição no CL (Green) 30d1674
-- [ ] Task: Criar `server/services/microstore.ts`
-    - [ ] Task: Escrever testes unitários (Red)
-    - [ ] Task: Implementar geração de URL Microstore (Green)
+- [x] Task: Criar server/services/microstore.ts
+    - [x] Task: Escrever testes unitários (Red)
+    - [x] Task: Implementar geração de URL Microstore (Green)
 - [ ] Task: Criar `server/services/email.ts`
     - [ ] Task: Escrever testes unitários (Red)
     - [ ] Task: Implementar envio via Resend (Green)
