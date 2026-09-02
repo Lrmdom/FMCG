@@ -13,7 +13,7 @@
 - [x] Task: Conductor - User Manual Verification 'Implementação Serviços' (Protocol in workflow.md) f657519 [checkpoint: f657519]
 
 ## Fase 2: Endpoint API
-- [x] Task: Criar `server/routes/subscriptions.ts`
+- [x] Task: Criar `server/routes/subscriptions.ts` 5591747
     - [x] Task: Escrever testes de integração (Red)
     - [x] Task: Implementar endpoint POST (Green)
 - [ ] Task: Conductor - User Manual Verification 'Endpoint API' (Protocol in workflow.md)
