@@ -16,4 +16,4 @@
 - [x] Task: Criar `server/routes/subscriptions.ts` 5591747
     - [x] Task: Escrever testes de integração (Red)
     - [x] Task: Implementar endpoint POST (Green)
-- [ ] Task: Conductor - User Manual Verification 'Endpoint API' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Endpoint API' (Protocol in workflow.md) a82c8df [checkpoint: a82c8df]
