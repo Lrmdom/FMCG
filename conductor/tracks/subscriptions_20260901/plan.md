@@ -17,3 +17,6 @@
     - [x] Task: Escrever testes de integração (Red)
     - [x] Task: Implementar endpoint POST (Green)
 - [x] Task: Conductor - User Manual Verification 'Endpoint API' (Protocol in workflow.md) a82c8df [checkpoint: a82c8df]
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 5934ebe
