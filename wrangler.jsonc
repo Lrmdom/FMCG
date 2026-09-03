@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "fmcg-photo-shopping",
+  "main": "server/index.ts",
+  "compatibility_date": "2026-09-02",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILESYSTEM_BUCKET",
+      "bucket_name": "hono-pubsub-filesystem"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MEMORY_KV",
+      "id": "060cdd2e9b4b40f38e3f17ca2f68864a"
+    }
+  ]
+}

@@ -260,14 +260,25 @@ export const FmcgPhotoScanner: React.FC = () => {
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
+                capture="environment"
                 className="hidden"
-                onChange={() => handleRunAnalysis({ presetScenarioId: 'fridge_morning' })}
+                onChange={async (e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      const base64String = reader.result as string;
+                      handleRunAnalysis({ imageBase64: base64String });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition"
               >
-                Selecionar Ficheiro do Dispositivo
+                Abrir Câmera / Selecionar Ficheiro
               </button>
             </div>
           )}

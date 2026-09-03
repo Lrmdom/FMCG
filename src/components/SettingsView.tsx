@@ -89,7 +89,7 @@ export const SettingsView: React.FC = () => {
             <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 font-mono text-xs max-h-40 overflow-y-auto scrollbar-none space-y-2">
               {gdprData.logs && gdprData.logs.length > 0 ? (
                 gdprData.logs.slice(0, 6).map((log: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-slate-300">
+                  <div key={`${log.timestamp}-${idx}`} className="flex items-center justify-between text-slate-300">
                     <span className="text-brand-400">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
                     <span className="text-slate-200 font-bold">{log.action}</span>
                     <span className="text-slate-500">Retenção: {log.retentionSec}s (Efémero)</span>

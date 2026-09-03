@@ -9,6 +9,7 @@ import type {
 import { GdprService } from './gdpr-service.ts';
 import { VectorSearchService } from './vector-search.ts';
 import { BarcodeService } from './barcode-service.ts';
+import { CatalogService } from './catalog-service.ts';
 import { FMCG_CATALOG } from '../../shared/catalog.ts';
 
 export class CascadeEngine {
@@ -145,9 +146,25 @@ export class CascadeEngine {
         details: 'Ignorado (confiança da Edge foi suficiente).',
       });
 
-      const matchedProducts = preset.expectedSkus
-        .map(sku => FMCG_CATALOG.find(p => p.sku === sku))
+      const catalog = await CatalogService.getCatalog();
+      
+      // Prioritize products matching preset expected SKUs, fallback to searching catalog
+      let matchedProducts = preset.expectedSkus
+        .map(sku => catalog.find((p: any) => p.sku === sku))
         .filter((p): p is FmcgProduct => !!p);
+
+      if (matchedProducts.length === 0) {
+        // Fallback: match based on scenario title keywords against catalog
+        const keywords = preset.title.toLowerCase().split(' ');
+        matchedProducts = catalog.filter((p: any) => 
+          p.name && typeof p.name === 'string' && keywords.some(k => p.name.toLowerCase().includes(k))
+        ).slice(0, 2);
+      }
+      
+      if (matchedProducts.length === 0) {
+        // Ultimate fallback to first catalog items
+        matchedProducts = catalog.slice(0, Math.min(catalog.length, 2));
+      }
 
       const detectedItems = matchedProducts.map((prod, idx) => {
         const equivalents = VectorSearchService.findEquivalents(prod.sku, 2).map(e => e.product);
@@ -222,9 +239,25 @@ export class CascadeEngine {
         details: `Análise multimodal avançada disambiguou SKU com ${(finalConfidence * 100).toFixed(0)}% de precisão.`,
       });
 
-      const matchedProducts = preset.expectedSkus
-        .map(sku => FMCG_CATALOG.find(p => p.sku === sku))
+      const catalog = await CatalogService.getCatalog();
+      
+      // Prioritize products matching preset expected SKUs, fallback to searching catalog
+      let matchedProducts = preset.expectedSkus
+        .map(sku => catalog.find((p: any) => p.sku === sku))
         .filter((p): p is FmcgProduct => !!p);
+
+      if (matchedProducts.length === 0) {
+        // Fallback: match based on scenario title keywords against catalog
+        const keywords = preset.title.toLowerCase().split(' ');
+        matchedProducts = catalog.filter((p: any) => 
+          p.name && typeof p.name === 'string' && keywords.some(k => p.name.toLowerCase().includes(k))
+        ).slice(0, 2);
+      }
+      
+      if (matchedProducts.length === 0) {
+        // Ultimate fallback to first catalog items
+        matchedProducts = catalog.slice(0, Math.min(catalog.length, 2));
+      }
 
       const detectedItems = matchedProducts.map((prod, idx) => {
         const equivalents = VectorSearchService.findEquivalents(prod.sku, 2).map(e => e.product);

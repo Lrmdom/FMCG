@@ -1,5 +1,22 @@
 import type { FmcgProduct } from './types.ts';
 
+export interface Product {
+  title: string;
+  imageUrl?: string | null;
+  sku?: string;
+  attributes?: any;
+  variants?: any[];
+  slug?: { current: string } | null;
+}
+
+export interface Category {
+  title: string;
+  products?: Product[] | null;
+  taxons?: Category[] | null;
+  imageUrl?: string | null;
+  slug?: { current: string } | null;
+}
+
 export const FMCG_CATALOG: FmcgProduct[] = [
   {
     sku: 'FMCG-LEI-001',

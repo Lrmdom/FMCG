@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "concurrently -n \"HONO-API,STOREFRONT\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node --watch server/index.ts",
-    "dev:client": "vite",
+    "dev:client": "vite --host",
     "mcp": "node server/scripts/mcp-stdio.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1125.0",
+    "@aws-sdk/lib-storage": "^3.1125.0",
     "@commercelayer/sdk": "^7.12.1",
     "@hono/node-server": "^1.13.8",
     "@hono/zod-validator": "^0.4.3",
@@ -19,6 +22,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "hono": "^4.7.2",
     "lucide-react": "^1.16.0",
     "react": "^19.0.0",
@@ -29,13 +33,15 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
-    "@types/node": "^22.13.10",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
-    "vite": "^6.2.1"
+    "vite": "^6.2.1",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.128.0"
   }
 }

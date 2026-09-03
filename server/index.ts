@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
@@ -13,7 +14,7 @@ import { mcpRouter } from './routes/mcp-routes.ts';
 const app = new Hono();
 
 // Middlewares
-app.use('*', logger());
+//app.use('*', logger());
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -50,25 +51,10 @@ app.get('/', (c) => {
   });
 });
 
-const PORT = 3001;
+// Start server if running in Node.js
+if (typeof process !== 'undefined' && process.versions?.node) {
+  serve({ fetch: app.fetch, port: 3001 });
+  console.log('Server running at http://localhost:3001');
+}
 
-console.log(`
-┌─────────────────────────────────────────────────────────────┐
-│  🚀 FMCG Smart Service powered by Hono (https://hono.dev/)  │
-│  🤖 MCP SDK: @modelcontextprotocol/sdk (Official Anthropic) │
-│  📡 API Server listening on: http://localhost:${PORT}        │
-│  ⚡ Endpoints:                                              │
-│     - Vision Cascade:   /api/vision/analyze                 │
-│     - Pantry Engine:    /api/pantry                         │
-│     - Smart Cart:       /api/cart                           │
-│     - FMCG Catalog:     /api/catalog                        │
-│     - User Settings:    /api/settings                       │
-│     - Unit Economics:   /api/analytics/economics            │
-│     - MCP Inspector:    /api/mcp/tools                      │
-└─────────────────────────────────────────────────────────────┘
-`);
-
-serve({
-  fetch: app.fetch,
-  port: PORT,
-});
+export default app;
