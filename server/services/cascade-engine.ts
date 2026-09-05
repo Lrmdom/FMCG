@@ -203,7 +203,7 @@ export class CascadeEngine {
               if (aiExtractedText) break;
 
               const isLlava = modelName.includes('llava');
-              const promptText = "Extract product name, brand and description text from this image.";
+              const promptText = "Extract product type (e.g. bicycle), bike type, brand and description from this image. Return ONLY a JSON object with keys: productType, bikeType, brand, description.";
 
               // ---- AI Binding ----
               if (aiBinding) {
@@ -291,7 +291,7 @@ export class CascadeEngine {
               for (const modelName of visionModels) {
                 if (aiExtractedText) break;
                 const isLlava = modelName.includes('llava');
-                const promptText = "Extract product name, brand and description text from this image.";
+                const promptText = "Extract product type (e.g. bicycle), bike type, brand and description from this image. Return ONLY a JSON object with keys: productType, bikeType, brand, description.";
                 try {
                   let response: any;
                   if (isLlava) {
@@ -329,8 +329,23 @@ export class CascadeEngine {
 
 
     const presetScenario = PRESET_VISION_SCENARIOS.find(p => p.id === params.presetScenarioId) || PRESET_VISION_SCENARIOS[0];
-    // Se IA extraiu texto da imagem enviada, usamos essa informação real extraída, senão mantemos preset para demo
-    const scenario = aiExtractedText ? { title: 'Extraído por Cloudflare Workers AI', description: aiExtractedText } : presetScenario;
+
+    let parsedAiData = { title: 'Extraído por Cloudflare Workers AI', description: aiExtractedText };
+
+    if (aiExtractedText) {
+      try {
+        const cleanedJson = aiExtractedText.replace(/```json/g, '').replace(/```/g, '');
+        const jsonData = JSON.parse(cleanedJson);
+        parsedAiData = {
+          title: `${jsonData.productType || ''} ${jsonData.bikeType || ''} ${jsonData.brand || ''}`.trim() || 'Extraído por Cloudflare Workers AI',
+          description: jsonData.description || aiExtractedText
+        };
+      } catch (e) {
+        console.warn('Falha ao parsear JSON de extração, usando fallback:', e);
+      }
+    }
+
+    const scenario = aiExtractedText ? parsedAiData : presetScenario;
     const isFallbackScenario = params.forceMethod === 'gemini_fallback' || presetScenario.method === 'gemini_fallback';
 
     telemetry.push({
@@ -378,7 +393,17 @@ export class CascadeEngine {
       const matchedProducts = this.matchProductsByTitle(catalog, scenario);
 
       const detectedItems = await Promise.all(matchedProducts.map(async (prod, idx) => {
-        const equivalents = (await VectorSearchService.findEquivalents(prod.title || '', 2)).map(e => e.product);
+        let equivalents: FmcgProduct[] = [];
+        if (prod.variants && prod.variants.length > 0) {
+          const variantEquivalents = await Promise.all(
+            prod.variants.map(v => VectorSearchService.findEquivalents(v.title || '', 2))
+          );
+          equivalents = Array.from(new Set(variantEquivalents.flat().map(e => e.product.sku)))
+            .map(sku => variantEquivalents.flat().find(e => e.product.sku === sku)!.product);
+        } else {
+          equivalents = (await VectorSearchService.findEquivalents(prod.title || '', 5)).map(e => e.product);
+        }
+        
         const box: DetectedBoundingBox = {
           x: 18 + idx * 35,
           y: 25 + idx * 10,
@@ -550,7 +575,7 @@ export class CascadeEngine {
   private static matchProductsByTitle(catalog: FmcgProduct[], scenario: { title?: string; description?: string }): FmcgProduct[] {
     if (!catalog || catalog.length === 0) return [];
 
-    const textToMatch = `${scenario?.title || ''} ${scenario?.description || ''}`.toLowerCase();
+    const textToMatch = `${scenario?.title}`.toLowerCase();
     const stopWords = new Set(['com', 'para', 'uma', 'este', 'esta', 'foto', 'modo', 'cesto', 'caixa', 'pacote', 'prateleira', 'interior', 'frigorífico', 'despensa', 'embalagem', 'amassada', 'luz', 'baixa', 'gemini', 'fallback']);
 
     const tokens = textToMatch
@@ -575,7 +600,7 @@ export class CascadeEngine {
       return matched.slice(0, 2);
     }
 
-    return catalog.slice(0, Math.min(catalog.length, 2));
+    return catalog.slice(0, Math.min(catalog.length, 5));
   }
 
 

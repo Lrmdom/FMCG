@@ -21,7 +21,7 @@ export class VectorSearchService {
   public static async findEquivalents(targetSku: string, limit?: number): Promise<any[]>;
   public static async findEquivalents(env: VectorSearchEnv | undefined, targetSku: string, limit?: number): Promise<any[]>;
   public static async findEquivalents(
-    envOrSku?: VectorSearchEnv | string,
+    title?: VectorSearchEnv | string,
     targetSkuOrLimit?: string | number,
     limit: number = 3
   ): Promise<any[]> {
@@ -29,12 +29,12 @@ export class VectorSearchService {
     let targetSku: string;
     let maxLimit = limit;
 
-    if (typeof envOrSku === 'string') {
+    if (typeof title === 'string') {
       env = undefined;
-      targetSku = envOrSku;
+      targetSku = title;
       maxLimit = typeof targetSkuOrLimit === 'number' ? targetSkuOrLimit : 3;
     } else {
-      env = envOrSku;
+      env = title;
       targetSku = (typeof targetSkuOrLimit === 'string' ? targetSkuOrLimit : '') || '';
       maxLimit = limit;
     }
@@ -43,6 +43,40 @@ export class VectorSearchService {
     const target = catalog.find(p => p.sku === targetSku);
     if (!target) return [];
 
+    // Attempt to use Vectorize if available
+    if (env?.VECTORIZE && env?.AI) {
+      try {
+        // Assume embeddings are generated based on product description or title
+        const queryText = target.description || target.title || target.name || '';
+        const embedding = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: queryText });
+        
+        const matches = await env.VECTORIZE.query(embedding.data[0], { 
+          topK: maxLimit + 1 // Include self
+        });
+
+        const results = matches.matches
+          .filter((m: any) => m.id !== targetSku)
+          .map((m: any) => {
+            const product = catalog.find(p => p.sku === m.id);
+            if (!product) return null;
+            
+            return {
+              product,
+              similarityScore: Number(m.score.toFixed(2)),
+              priceSavingsEur: Math.max(0, target.basePrice - product.basePrice).toFixed(2),
+              priceSavingsPercent: target.basePrice > 0 ? ((Math.max(0, target.basePrice - product.basePrice) / target.basePrice) * 100).toFixed(1) : 0,
+            };
+          })
+          .filter(Boolean)
+          .slice(0, maxLimit);
+          
+        return results;
+      } catch (e) {
+        console.warn('Vectorize search failed, falling back to manual matching:', e);
+      }
+    }
+
+    // Fallback manual matching
     const candidates = catalog.filter(p => p.sku !== targetSku);
     const results = candidates
       .map(candidate => {
