@@ -582,7 +582,7 @@ export class CascadeEngine {
       .replace(/[^\w\sà-ú]/gi, ' ')
       .split(/\s+/)
       .filter(w => w.length >= 3 && !stopWords.has(w));
-//tod
+//todo use vectorize here instead 
     const matched = catalog.filter((product) => {
       const titles = [
         product.title,
