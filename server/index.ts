@@ -54,7 +54,7 @@ app.get('/', (c) => {
 // Start server if running in Node.js
 if (typeof process !== 'undefined' && process.versions?.node) {
   serve({ fetch: app.fetch, port: 3001 });
-  console.log('Server running at http://localhost:3001');
+  console.log('Server running at http://localhost:3000');
 }
 
 export default app;

@@ -203,7 +203,7 @@ export class CascadeEngine {
               if (aiExtractedText) break;
 
               const isLlava = modelName.includes('llava');
-              const promptText = "Extract product type (e.g. bicycle), bike type, brand and description from this image. Return ONLY a JSON object with keys: productType, bikeType, brand, description.";
+              const promptText = "Extract product details (type, brand, model, description) from image. ReturnONLY JSON object with keys: productType, brand, model, description.";
 
               // ---- AI Binding ----
               if (aiBinding) {
@@ -582,7 +582,7 @@ export class CascadeEngine {
       .replace(/[^\w\sà-ú]/gi, ' ')
       .split(/\s+/)
       .filter(w => w.length >= 3 && !stopWords.has(w));
-
+//tod
     const matched = catalog.filter((product) => {
       const titles = [
         product.title,

@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "dev:wrangler": "wrangler dev"
+    "dev:wrangler": "npm run build && npx wrangler dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",
