@@ -104,7 +104,7 @@ fmcgMcpServer.tool(
         content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
       };
     }
-    const equivalents = VectorSearchService.findEquivalents(product.sku, 3);
+    const equivalents = await VectorSearchService.findEquivalents(product.sku, 3);
     const resultObj = {
       found: true,
       product,
@@ -131,9 +131,9 @@ fmcgMcpServer.tool(
     const isSku = FMCG_CATALOG.some(p => p.sku === skuOrQuery);
     let results;
     if (isSku) {
-      results = VectorSearchService.findEquivalents(skuOrQuery, limit || 3);
+      results = await VectorSearchService.findEquivalents(skuOrQuery, limit || 3);
     } else {
-      results = VectorSearchService.searchByQuery(skuOrQuery, limit || 5).map(p => ({
+      results = (await VectorSearchService.searchByQuery(skuOrQuery, limit || 5)).map(p => ({
         product: p,
         similarityScore: 0.85,
         priceSavingsEur: 0,
@@ -163,7 +163,7 @@ fmcgMcpServer.tool(
       presetScenarioId,
       eanBarcode,
       forceMethod,
-    });
+    }, {});
     recordMcpLog('scan_pantry_items', { presetScenarioId, eanBarcode, forceMethod }, result, Date.now() - t0, 'success');
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],

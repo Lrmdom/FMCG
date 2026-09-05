@@ -19,6 +19,8 @@ export interface SupermarketPrice {
 }
 
 export interface FmcgProduct {
+  taxon?: any;
+  title?: string;
   sku: string;
   ean: string;
   name: string;
@@ -36,6 +38,7 @@ export interface FmcgProduct {
   nutriScore?: 'A' | 'B' | 'C' | 'D' | 'E';
   ecoScore?: 'A' | 'B' | 'C' | 'D' | 'E';
   description?: string;
+  variants?: FmcgProduct[];
 }
 
 export type StorageLocation = 'pantry' | 'fridge' | 'freezer' | 'cleaning';

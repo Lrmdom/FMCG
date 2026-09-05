@@ -124,15 +124,15 @@ mcpRouter.post('/tools/:toolName', async (c) => {
       if (!product) {
         throw new Error(`Produto ${params.sku} não encontrado`);
       }
-      const equivalents = VectorSearchService.findEquivalents(product.sku, 3);
+      const equivalents = await VectorSearchService.findEquivalents(product.sku, 3);
       result = { found: true, product, equivalents };
     } else if (toolName === 'suggest_equivalent_products') {
       const isSku = FMCG_CATALOG.some(p => p.sku === params.skuOrQuery);
       if (isSku) {
-        result = { suggestions: VectorSearchService.findEquivalents(params.skuOrQuery, params.limit || 3) };
+        result = { suggestions: await VectorSearchService.findEquivalents(params.skuOrQuery, params.limit || 3) };
       } else {
         result = {
-          suggestions: VectorSearchService.searchByQuery(params.skuOrQuery, params.limit || 5).map(p => ({
+          suggestions: (await VectorSearchService.searchByQuery(params.skuOrQuery, params.limit || 5)).map(p => ({
             product: p,
             similarityScore: 0.85,
             priceSavingsEur: 0,
@@ -145,7 +145,7 @@ mcpRouter.post('/tools/:toolName', async (c) => {
         presetScenarioId: params.presetScenarioId,
         eanBarcode: params.eanBarcode,
         forceMethod: params.forceMethod,
-      });
+      }, {});
     } else if (toolName === 'get_pantry_inventory') {
       const inventory = PantryEngine.getInventory(params.location);
       const restockCandidates = PantryEngine.getRestockCandidates(3);
