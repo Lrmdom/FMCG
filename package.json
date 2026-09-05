@@ -10,7 +10,8 @@
     "mcp": "node server/scripts/mcp-stdio.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "dev:wrangler": "wrangler dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",

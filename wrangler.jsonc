@@ -17,5 +17,16 @@
       "binding": "MEMORY_KV",
       "id": "060cdd2e9b4b40f38e3f17ca2f68864a"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI",
+      "remote": true
+  },
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "asualoja-index",
+			"remote": true
+		}
+	]
 }
