@@ -396,7 +396,7 @@ export class CascadeEngine {
         let equivalents: FmcgProduct[] = [];
         if (prod.variants && prod.variants.length > 0) {
           const variantEquivalents = await Promise.all(
-            prod.variants.map(v => VectorSearchService.findEquivalents(v.title || '', 2))
+            prod.variants.map(v => VectorSearchService.findEquivalents(v.title || '', 3))
           );
           equivalents = Array.from(new Set(variantEquivalents.flat().map(e => e.product.sku)))
             .map(sku => variantEquivalents.flat().find(e => e.product.sku === sku)!.product);
