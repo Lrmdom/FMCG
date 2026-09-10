@@ -124,6 +124,7 @@ export class CascadeEngine {
         });
 
         const equivalents = (await VectorSearchService.findEquivalents(product.sku, 2)).map(e => e.product);
+        console.log('DEBUG: equivalents:', equivalents);
 
         GdprService.logSkuMutation('vision_barcode_match', [product.sku]);
 
@@ -228,6 +229,7 @@ export class CascadeEngine {
                     });
                   }
                   aiExtractedText = response.description || response.response || response.result || '';
+                  console.log('DEBUG: aiExtractedText:', aiExtractedText);
                 } catch (bindingErr: any) {
                   console.warn(`Falha no modelo ${modelName} via aiBinding:`, bindingErr?.message || bindingErr);
                 }
@@ -311,6 +313,7 @@ export class CascadeEngine {
                     });
                   }
                   aiExtractedText = response.description || response.response || response.result || '';
+                  console.log('DEBUG: aiExtractedText:', aiExtractedText);
                 } catch (bindingErr: any) {
                   console.warn(`Falha no modelo ${modelName} via aiBinding (imagem grande):`, bindingErr?.message || bindingErr);
                 }
@@ -424,7 +427,7 @@ export class CascadeEngine {
           alternativeSuggestions: equivalents,
         };
       }));
-
+console.log(detectedItems, null, 2)
       GdprService.logSkuMutation('vision_edge_ai_match', detectedItems.map(d => d.sku));
 
       return {
@@ -500,7 +503,7 @@ export class CascadeEngine {
           alternativeSuggestions: equivalents,
         };
       }));
-
+      console.log(JSON.stringify(detectedItems, null, 2))
       GdprService.logSkuMutation('vision_gemini_fallback_match', detectedItems.map(d => d.sku));
 
       return {
@@ -572,36 +575,116 @@ export class CascadeEngine {
     return null;
   }
 
-  private static matchProductsByTitle(catalog: FmcgProduct[], scenario: { title?: string; description?: string }): FmcgProduct[] {
-    if (!catalog || catalog.length === 0) return [];
 
-    const textToMatch = `${scenario?.title}`.toLowerCase();
-    const stopWords = new Set(['com', 'para', 'uma', 'este', 'esta', 'foto', 'modo', 'cesto', 'caixa', 'pacote', 'prateleira', 'interior', 'frigorífico', 'despensa', 'embalagem', 'amassada', 'luz', 'baixa', 'gemini', 'fallback']);
+private static matchProductsByTitle(
+  catalog: FmcgProduct[],
+  scenario: { title?: string; description?: string }
+): FmcgProduct[] {
 
-    const tokens = textToMatch
-      .replace(/[^\w\sà-ú]/gi, ' ')
-      .split(/\s+/)
-      .filter(w => w.length >= 3 && !stopWords.has(w));
-//todo use vectorize here instead 
-    const matched = catalog.filter((product) => {
-      const titles = [
-        product.title,
-        product.name,
-        ...(product.variants?.map(v => v.title || v.name) || [])
-      ].filter((t): t is string => typeof t === 'string' && t.length > 0);
-
-      return titles.some(t => {
-        const lower = t.toLowerCase();
-        return tokens.some(token => lower.includes(token));
-      });
-    });
-
-    if (matched.length > 0) {
-      return matched.slice(0, 2);
-    }
-
-    return catalog.slice(0, Math.min(catalog.length, 5));
+  if (!catalog?.length) {
+    console.log('[DEBUG] Catálogo vazio ou indefinido.');
+    return [];
   }
+
+  const STOPWORDS = new Set([
+    'a', 'à', 'às', 'ao', 'aos', 'as', 'o', 'os', 'um', 'uma', 'uns', 'umas',
+    'de', 'da', 'das', 'do', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'por',
+    'para', 'com', 'sem', 'sob', 'sobre', 'entre', 'e', 'ou', 'mas', 'que',
+    'se', 'como', 'quando', 'onde', 'qual', 'quais', 'quem', 'cujo', 'cuja',
+    'é', 'são', 'ser', 'estar', 'ter', 'haver', 'fazer', 'pode', 'podem',
+    'muito', 'pouco', 'mais', 'menos', 'já', 'ainda', 'também', 'só', 'bem',
+    'mal', 'assim', 'então', 'porque', 'porquê', 'portanto', 'contudo',
+    'todavia', 'entretanto', 'além', 'disso', 'deste', 'desta', 'desse',
+    'dessa', 'daquele', 'daquela', 'este', 'esta', 'esse', 'essa', 'aquele',
+    'aquela', 'isto', 'isso', 'aquilo', 'meu', 'minha', 'meus', 'minhas',
+    'teu', 'tua', 'teus', 'tuas', 'seu', 'sua', 'seus', 'suas', 'nosso',
+    'nossa', 'nossos', 'nossas', 'vosso', 'vossa', 'vossos', 'vossas'
+  ]);
+
+  const extractTokens = (text: string): string[] => {
+    return [
+      ...new Set(
+        text
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+          .split(/\s+/)
+          .map(token => token.trim())
+          .filter(
+            token =>
+              token.length >= 2 &&
+              !STOPWORDS.has(token)
+          )
+      )
+    ];
+  };
+
+  const titleTokens = extractTokens(scenario?.title || '');
+  const descriptionTokens = extractTokens(scenario?.description || '');
+
+  
+
+  if (!titleTokens.length && !descriptionTokens.length) {
+    console.log('[DEBUG] Nenhum token válido extraído do cenário.');
+    return [];
+  }
+
+  const matched = catalog
+    .map((product, index) => {
+      const titles: string[] = [];
+
+      const collectTitles = (obj: any) => {
+        if (!obj) return;
+        if (typeof obj.title === 'string') titles.push(obj.title);
+        if (typeof obj.name === 'string') titles.push(obj.name);
+        if (Array.isArray(obj.variants)) obj.variants.forEach(collectTitles);
+      };
+
+      collectTitles(product);
+
+      const productTokens = extractTokens(titles.join(' '));
+
+      let titleMatches = 0;
+      for (const token of titleTokens) {
+        if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
+          titleMatches++;
+        }
+      }
+
+      let descMatches = 0;
+      for (const token of descriptionTokens) {
+        if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
+          descMatches++;
+        }
+      }
+
+      const totalScore = (titleMatches * 3) + descMatches;
+      const isValid = totalScore > 0;
+
+      
+
+      return {
+        product,
+        isValid,
+        titleMatches,
+        descMatches,
+        totalScore
+      };
+    })
+    .filter(item => item.isValid)
+    .sort((a, b) => {
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+      if (b.titleMatches !== a.titleMatches) return b.titleMatches - a.titleMatches;
+      return b.descMatches - a.descMatches;
+    })
+    .map(item => item.product);
+
+  console.log('[DEBUG] Resultado Final (Matches):', matched.slice(0, 2));
+  console.log('=============================');
+
+  return matched.slice(0, 2);
+}
 
 
 
