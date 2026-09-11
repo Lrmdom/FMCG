@@ -87,9 +87,9 @@ export class CatalogService {
     if (variants.length === 0) {
       // Produto sem variantes
       const product = this.mapToFmcgProduct(node);
-      if (product?.sku) {
+      //if (product?.sku) {
         result.push(product);
-      }
+      //}
       return;
     }
 

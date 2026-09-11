@@ -277,6 +277,8 @@ export class CascadeEngine {
                   if (cfRes.ok) {
                     const resData: any = await cfRes.json();
                     aiExtractedText = resData.result?.description || resData.result?.response || resData.result?.text || '';
+                    console.log('DEBUG: aiExtractedText:', aiExtractedText);
+
                   } else {
                     const errBody = await cfRes.text();
                     console.error(`Cloudflare AI REST API [${modelName}] Erro [${cfRes.status}]:`, errBody);
@@ -343,6 +345,7 @@ export class CascadeEngine {
           title: `${jsonData.productType || ''} ${jsonData.bikeType || ''} ${jsonData.brand || ''}`.trim() || 'Extraído por Cloudflare Workers AI',
           description: jsonData.description || aiExtractedText
         };
+        console.log("parsedAiData: ", parsedAiData)
       } catch (e) {
         console.warn('Falha ao parsear JSON de extração, usando fallback:', e);
       }
@@ -368,7 +371,8 @@ export class CascadeEngine {
 
     if (!isFallbackScenario) {
       const edgeLatency = 160 + Math.floor(Math.random() * 40);
-      const edgeConfidence = presetScenario.suggestedConfidence || 0.91;
+      // Ajuste: usar confiança da IA se disponível, caso contrário cai no preset
+      const edgeConfidence = (typeof (scenario as any).confidence === 'number') ? (scenario as any).confidence : (presetScenario.suggestedConfidence || 0.91);
 
       telemetry.push({
         step: 2,
@@ -406,7 +410,7 @@ export class CascadeEngine {
         } else {
           equivalents = (await VectorSearchService.findEquivalents(prod.title || '', 5)).map(e => e.product);
         }
-        
+
         const box: DetectedBoundingBox = {
           x: 18 + idx * 35,
           y: 25 + idx * 10,
@@ -427,7 +431,7 @@ export class CascadeEngine {
           alternativeSuggestions: equivalents,
         };
       }));
-console.log(detectedItems, null, 2)
+      console.log(detectedItems, null, 2)
       GdprService.logSkuMutation('vision_edge_ai_match', detectedItems.map(d => d.sku));
 
       return {
@@ -576,115 +580,117 @@ console.log(detectedItems, null, 2)
   }
 
 
-private static matchProductsByTitle(
-  catalog: FmcgProduct[],
-  scenario: { title?: string; description?: string }
-): FmcgProduct[] {
+  private static matchProductsByTitle(
+    catalog: FmcgProduct[],
+    scenario: { title?: string; description?: string }
+  ): FmcgProduct[] {
 
-  if (!catalog?.length) {
-    console.log('[DEBUG] Catálogo vazio ou indefinido.');
-    return [];
-  }
+    if (!catalog?.length) {
+      console.log('[DEBUG] Catálogo vazio ou indefinido.');
+      return [];
+    }
 
-  const STOPWORDS = new Set([
-    'a', 'à', 'às', 'ao', 'aos', 'as', 'o', 'os', 'um', 'uma', 'uns', 'umas',
-    'de', 'da', 'das', 'do', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'por',
-    'para', 'com', 'sem', 'sob', 'sobre', 'entre', 'e', 'ou', 'mas', 'que',
-    'se', 'como', 'quando', 'onde', 'qual', 'quais', 'quem', 'cujo', 'cuja',
-    'é', 'são', 'ser', 'estar', 'ter', 'haver', 'fazer', 'pode', 'podem',
-    'muito', 'pouco', 'mais', 'menos', 'já', 'ainda', 'também', 'só', 'bem',
-    'mal', 'assim', 'então', 'porque', 'porquê', 'portanto', 'contudo',
-    'todavia', 'entretanto', 'além', 'disso', 'deste', 'desta', 'desse',
-    'dessa', 'daquele', 'daquela', 'este', 'esta', 'esse', 'essa', 'aquele',
-    'aquela', 'isto', 'isso', 'aquilo', 'meu', 'minha', 'meus', 'minhas',
-    'teu', 'tua', 'teus', 'tuas', 'seu', 'sua', 'seus', 'suas', 'nosso',
-    'nossa', 'nossos', 'nossas', 'vosso', 'vossa', 'vossos', 'vossas'
-  ]);
+    const STOPWORDS = new Set([
+      'a', 'à', 'às', 'ao', 'aos', 'as', 'o', 'os', 'um', 'uma', 'uns', 'umas',
+      'de', 'da', 'das', 'do', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'por',
+      'para', 'com', 'sem', 'sob', 'sobre', 'entre', 'e', 'ou', 'mas', 'que',
+      'se', 'como', 'quando', 'onde', 'qual', 'quais', 'quem', 'cujo', 'cuja',
+      'é', 'são', 'ser', 'estar', 'ter', 'haver', 'fazer', 'pode', 'podem',
+      'muito', 'pouco', 'mais', 'menos', 'já', 'ainda', 'também', 'só', 'bem',
+      'mal', 'assim', 'então', 'porque', 'porquê', 'portanto', 'contudo',
+      'todavia', 'entretanto', 'além', 'disso', 'deste', 'desta', 'desse',
+      'dessa', 'daquele', 'daquela', 'este', 'esta', 'esse', 'essa', 'aquele',
+      'aquela', 'isto', 'isso', 'aquilo', 'meu', 'minha', 'meus', 'minhas',
+      'teu', 'tua', 'teus', 'tuas', 'seu', 'sua', 'seus', 'suas', 'nosso',
+      'nossa', 'nossos', 'nossas', 'vosso', 'vossa', 'vossos', 'vossas'
+    ]);
 
-  const extractTokens = (text: string): string[] => {
-    return [
-      ...new Set(
-        text
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-          .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-          .split(/\s+/)
-          .map(token => token.trim())
-          .filter(
-            token =>
-              token.length >= 2 &&
-              !STOPWORDS.has(token)
-          )
-      )
-    ];
-  };
+    const extractTokens = (text: string): string[] => {
+      return [
+        ...new Set(
+          text
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .split(/\s+/)
+            .map(token => token.trim())
+            .filter(
+              token =>
+                token.length >= 2 &&
+                !STOPWORDS.has(token)
+            )
+        )
+      ];
+    };
 
-  const titleTokens = extractTokens(scenario?.title || '');
-  const descriptionTokens = extractTokens(scenario?.description || '');
+    const titleTokens = extractTokens(scenario?.title || '');
+    const descriptionTokens = extractTokens(scenario?.description || '');
 
-  
 
-  if (!titleTokens.length && !descriptionTokens.length) {
-    console.log('[DEBUG] Nenhum token válido extraído do cenário.');
-    return [];
-  }
 
-  const matched = catalog
-    .map((product, index) => {
-      const titles: string[] = [];
+    if (!titleTokens.length && !descriptionTokens.length) {
+      console.log('[DEBUG] Nenhum token válido extraído do cenário.');
+      return [];
+    }
 
-      const collectTitles = (obj: any) => {
-        if (!obj) return;
-        if (typeof obj.title === 'string') titles.push(obj.title);
-        if (typeof obj.name === 'string') titles.push(obj.name);
-        if (Array.isArray(obj.variants)) obj.variants.forEach(collectTitles);
-      };
+    const matched = catalog
+      .map((product, index) => {
+        const titles: string[] = [];
 
-      collectTitles(product);
+        const collectTitles = (obj: any) => {
+          if (!obj) return;
+          if (typeof obj.title === 'string') titles.push(obj.title);
+          if (typeof obj.name === 'string') titles.push(obj.name);
+          if (Array.isArray(obj.variants)) obj.variants.forEach(collectTitles);
+        };
 
-      const productTokens = extractTokens(titles.join(' '));
+        collectTitles(product);
 
-      let titleMatches = 0;
-      for (const token of titleTokens) {
-        if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
-          titleMatches++;
+        const productTokens = extractTokens(titles.join(' '));
+
+        let titleMatches = 0;
+        for (const token of titleTokens) {
+          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
+            titleMatches++;
+          }
         }
-      }
 
-      let descMatches = 0;
-      for (const token of descriptionTokens) {
-        if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
-          descMatches++;
+        let descMatches = 0;
+        for (const token of descriptionTokens) {
+          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
+            descMatches++;
+          }
         }
-      }
 
-      const totalScore = (titleMatches * 3) + descMatches;
-      const isValid = totalScore > 0;
+        const totalScore = (titleMatches * 3) + descMatches;
+        console.log('totalScore: ', totalScore, 'titleMatches: ', titleMatches, 'descMatches: ', descMatches, 'product: ', product)
 
-      
+        const isValid = totalScore > 3;
 
-      return {
-        product,
-        isValid,
-        titleMatches,
-        descMatches,
-        totalScore
-      };
-    })
-    .filter(item => item.isValid)
-    .sort((a, b) => {
-      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-      if (b.titleMatches !== a.titleMatches) return b.titleMatches - a.titleMatches;
-      return b.descMatches - a.descMatches;
-    })
-    .map(item => item.product);
 
-  console.log('[DEBUG] Resultado Final (Matches):', matched.slice(0, 2));
-  console.log('=============================');
 
-  return matched.slice(0, 2);
-}
+        return {
+          product,
+          isValid,
+          titleMatches,
+          descMatches,
+          totalScore
+        };
+      })
+      .filter(item => item.isValid)
+      .sort((a, b) => {
+        if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+        if (b.titleMatches !== a.titleMatches) return b.titleMatches - a.titleMatches;
+        return b.descMatches - a.descMatches;
+      })
+      .map(item => item.product);
+
+    console.log('[DEBUG] Resultado Final (Matches):', matched);
+    console.log('=============================');
+
+    return matched;
+  }
 
 
 
