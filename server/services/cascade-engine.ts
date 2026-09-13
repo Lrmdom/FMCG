@@ -124,7 +124,7 @@ export class CascadeEngine {
         });
 
         const equivalents = (await VectorSearchService.findEquivalents(product.sku, 2)).map(e => e.product);
-        console.log('DEBUG: equivalents:', equivalents);
+        //console.log('DEBUG: EQUIVALENTES>>>>>>>>>>>>>:', equivalents);
 
         GdprService.logSkuMutation('vision_barcode_match', [product.sku]);
 
@@ -229,7 +229,7 @@ export class CascadeEngine {
                     });
                   }
                   aiExtractedText = response.description || response.response || response.result || '';
-                  console.log('DEBUG: aiExtractedText:', aiExtractedText);
+                  //console.log('DEBUG: aiExtractedText:', aiExtractedText);
                 } catch (bindingErr: any) {
                   console.warn(`Falha no modelo ${modelName} via aiBinding:`, bindingErr?.message || bindingErr);
                 }
@@ -277,7 +277,7 @@ export class CascadeEngine {
                   if (cfRes.ok) {
                     const resData: any = await cfRes.json();
                     aiExtractedText = resData.result?.description || resData.result?.response || resData.result?.text || '';
-                    console.log('DEBUG: aiExtractedText:', aiExtractedText);
+                    //console.log('DEBUG: aiExtractedText:', aiExtractedText);
 
                   } else {
                     const errBody = await cfRes.text();
@@ -315,7 +315,7 @@ export class CascadeEngine {
                     });
                   }
                   aiExtractedText = response.description || response.response || response.result || '';
-                  console.log('DEBUG: aiExtractedText:', aiExtractedText);
+                  //console.log('DEBUG: aiExtractedText:', aiExtractedText);
                 } catch (bindingErr: any) {
                   console.warn(`Falha no modelo ${modelName} via aiBinding (imagem grande):`, bindingErr?.message || bindingErr);
                 }
@@ -431,7 +431,7 @@ export class CascadeEngine {
           alternativeSuggestions: equivalents,
         };
       }));
-      console.log(detectedItems, null, 2)
+      //console.log('>>>>>>>>>>>>>>>>>>>>>>> detectedItems:', JSON.stringify(detectedItems, null, 2))
       GdprService.logSkuMutation('vision_edge_ai_match', detectedItems.map(d => d.sku));
 
       return {
@@ -507,7 +507,7 @@ export class CascadeEngine {
           alternativeSuggestions: equivalents,
         };
       }));
-      console.log(JSON.stringify(detectedItems, null, 2))
+      //console.log(JSON.stringify(detectedItems, null, 2))
       GdprService.logSkuMutation('vision_gemini_fallback_match', detectedItems.map(d => d.sku));
 
       return {
