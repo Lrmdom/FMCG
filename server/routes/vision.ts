@@ -37,7 +37,8 @@ visionRouter.post('/analyze', async (c) => {
       presetScenarioId = formData.get('presetScenarioId') as string | undefined;
       forceMethod = formData.get('forceMethod') as string | undefined;
       blurFaces = formData.get('blurFaces') === 'true';
-      lang = formData.get('lang') as string | undefined;
+      //lang = formData.get('lang') as string | undefined;
+      lang = "en"
     }
 
     if (imageInput && typeof imageInput !== 'string' && typeof (imageInput as any).arrayBuffer === 'function') {
