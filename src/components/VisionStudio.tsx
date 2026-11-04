@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { api } from '@/lib/api.ts';
 import { useMcpCart } from '@/sdk/hooks/useMcpCart.ts';
 import { useFmcgService } from '@/sdk/hooks/useFmcgService.ts';
-import type { VisionAnalysisResult, VisionCascadeMethod } from '@shared/types.ts';
+import type { SimpleVisionResult, VisionCascadeMethod } from '@shared/types.ts';
 import { 
   Camera, 
   Sparkles, 
@@ -14,7 +14,10 @@ import {
   Zap,
   TrendingDown,
   DollarSign,
-  Clock
+  Clock,
+  ShoppingCart,
+  Package,
+  Image as ImageIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -25,14 +28,31 @@ export const VisionStudio: React.FC = () => {
   const [selectedScenario, setSelectedScenario] = useState<string>('fridge_morning');
   const [forceMethod, setForceMethod] = useState<VisionCascadeMethod | undefined>(undefined);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [result, setResult] = useState<VisionAnalysisResult | null>(null);
+  const [result, setResult] = useState<SimpleVisionResult | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll para resultados quando a análise é concluída
+  useEffect(() => {
+    if (result && resultsRef.current) {
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [result]);
+
+  const getValidSupermarket = () => {
+    const pref = settings?.preferredSupermarket;
+    if (pref && pref !== 'cheapest_split') return pref;
+    return undefined;
+  };
 
   const handleRun = async (scenarioId = selectedScenario, forced = forceMethod) => {
     setIsAnalyzing(true);
+    setResult(null);
     try {
       const res = await api.analyzeVision({
         presetScenarioId: scenarioId,
-        forceMethod: forced,
+        forceMethod: forced as 'barcode' | 'edge_ai' | 'gemini_fallback' | undefined,
         blurFaces: settings?.privacyBlurFaces ?? true,
       });
       setResult(res);
@@ -43,6 +63,14 @@ export const VisionStudio: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Imagem do cenário selecionado
+  const scenarioImages: Record<string, string> = {
+    fridge_morning: 'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=400&auto=format&fit=crop&q=80',
+    pantry_breakfast: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=400&auto=format&fit=crop&q=80',
+    empty_box_blur: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=400&auto=format&fit=crop&q=80',
+    barcode_instant: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400&auto=format&fit=crop&q=80',
   };
 
   return (
@@ -187,55 +215,209 @@ export const VisionStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* Results & Live Telemetry Inspector */}
+      {/* Loading state */}
+      {isAnalyzing && !result && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+          <RefreshCw className="w-10 h-10 animate-spin text-brand-400 mx-auto" />
+          <h3 className="text-lg font-bold text-white">A analisar imagem com IA em cascata...</h3>
+          <p className="text-sm text-slate-400">A pipeline híbrida está a processar a fotografia. Isto pode demorar alguns segundos.</p>
+        </div>
+      )}
+
+      {/* Results Section - Always visible when there are results */}
       {result && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
-          {/* Top Metrics Banner */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6 border-b border-slate-800">
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-brand-400" /> Latência Total
-              </span>
-              <p className="text-xl font-bold text-white font-mono mt-1">
-                {result.totalLatencyMs} ms
-              </p>
+        <div ref={resultsRef} className="space-y-6 animate-in fade-in duration-500">
+          {/* Results Header Banner */}
+          <div className="bg-gradient-to-r from-brand-500/10 via-brand-500/5 to-transparent border border-brand-500/30 rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-brand-500/20 border border-brand-500/30">
+                <CheckCircle2 className="w-8 h-8 text-brand-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">
+                  {result.detectedItems.length} Produto{result.detectedItems.length > 1 ? 's' : ''} Detetado{result.detectedItems.length > 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  Análise concluída em <span className="font-mono text-brand-400 font-bold">{result.totalLatencyMs}ms</span> com cascata híbrida
+                </p>
+              </div>
             </div>
-
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-brand-400" /> Custo por Inferência
-              </span>
-              <p className="text-xl font-bold text-brand-400 font-mono mt-1">
-                ${result.totalCostUsd.toFixed(6)}
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-fmcg-blue" /> SKUs Detetados
-              </span>
-              <p className="text-xl font-bold text-white font-mono mt-1">
-                {result.detectedItems.length}
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-400" /> RGPD Art. 5
-              </span>
-              <p className="text-xs font-bold text-brand-400 mt-2 flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> Efémero em Memória
-              </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  result.detectedItems.forEach(item => {
+                    addToCart(item.sku, 1, getValidSupermarket(), 'photo_scanner');
+                  });
+                  showToast('Adicionado ao Carrinho! 🛒', `${result.detectedItems.length} produtos adicionados.`, 'success');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-brand-500/20 flex items-center gap-2"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Adicionar Todos ao Carrinho
+              </button>
             </div>
           </div>
 
-          {/* Cascade Telemetry Pipeline Visualizer */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Passo a Passo da Cascata de Decisão
-            </h4>
+          {/* Image Preview + Products Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Image Preview */}
+            <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+              <div className="p-4 border-b border-slate-800">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-brand-400" />
+                  Imagem Analisada
+                </h4>
+              </div>
+              <div className="p-4">
+                <img
+                  src={scenarioImages[selectedScenario] || ''}
+                  alt="Imagem analisada"
+                  className="w-full h-48 object-cover rounded-2xl border border-slate-700"
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-500 text-[10px]">Cenário</span>
+                    <p className="text-white font-semibold truncate">{selectedScenario.replace('_', ' ')}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-500 text-[10px]">Método</span>
+                    <p className="text-brand-400 font-semibold text-[10px] font-mono">{result.detectedItems[0]?.detectionMethod || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            <div className="space-y-2.5">
+            {/* Detected Products Cards */}
+            <div className="lg:col-span-2 space-y-4">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Package className="w-4 h-4 text-brand-400" />
+                Produtos Identificados
+              </h4>
+
+              {result.detectedItems && result.detectedItems.length > 0 ? (
+                <div className="space-y-3">
+                  {result.detectedItems.map((item, idx) => {
+                    const product = item.product || {};
+                    const productName = product.name || 'Produto sem nome';
+                    const productImage = product.imageUrl || '';
+                    const productPrice = typeof product.basePrice === 'number' ? product.basePrice : 0;
+                    const productUnit = product.unit || 'un';
+                    return (
+                      <div
+                        key={item.sku || `item-${idx}`}
+                        className="bg-slate-900 border border-slate-800 rounded-2xl p-4 hover:border-brand-500/50 transition group"
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Product Image */}
+                          <div className="flex-shrink-0">
+                            <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-slate-700 group-hover:border-brand-500/50 transition bg-slate-800 flex items-center justify-center">
+                              {productImage ? (
+                                <img
+                                  src={productImage}
+                                  alt={productName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-2xl">📦</span>';
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-2xl">📦</span>
+                              )}
+                            </div>
+                            <div className="mt-1.5 text-center">
+                              <span className="text-[10px] font-mono text-slate-500">#{idx + 1}</span>
+                            </div>
+                          </div>
+
+                          {/* Product Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h5 className="text-sm font-bold text-white truncate">{productName}</h5>
+                                <p className="text-[11px] font-mono text-brand-400 mt-0.5">{item.sku}</p>
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                <p className="text-lg font-black text-white">€{productPrice.toFixed(2)}</p>
+                                <p className="text-[10px] text-slate-500">/ {productUnit}</p>
+                              </div>
+                            </div>
+
+                            {/* Confidence Badge */}
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex-1 bg-slate-950 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400"
+                                  style={{ width: `${(item.confidence * 100).toFixed(0)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-bold text-brand-400 font-mono flex-shrink-0">
+                                {(item.confidence * 100).toFixed(0)}%
+                              </span>
+                            </div>
+
+                            {/* Alternative suggestion */}
+                            {item.alternativeSuggestions && item.alternativeSuggestions.length > 0 && (
+                              <div className="mt-3 p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                                <div className="flex items-center justify-between">
+                                  <div className="min-w-0">
+                                    <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Alternativa mais barata</span>
+                                    <p className="text-xs text-slate-300 truncate mt-0.5">
+                                      {item.alternativeSuggestions[0].name} — €{item.alternativeSuggestions[0].basePrice.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      addToCart(item.alternativeSuggestions![0].sku, 1, getValidSupermarket(), 'mcp_tool');
+                                      showToast('Alternativa Adicionada', `${item.alternativeSuggestions![0].name} adicionado.`, 'success');
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-[10px] font-bold border border-amber-500/30 transition flex-shrink-0 ml-2"
+                                  >
+                                    Trocar e Poupar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="mt-3 pt-3 border-t border-slate-800 flex gap-2">
+                          <button
+                            onClick={() => {
+                              addToCart(item.sku, 1, getValidSupermarket(), 'photo_scanner');
+                              showToast('Adicionado! 🛒', `${productName} adicionado ao carrinho.`, 'success');
+                            }}
+                            className="flex-1 py-2 rounded-xl bg-brand-500/20 text-brand-300 hover:bg-brand-500/30 border border-brand-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                          >
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                            Adicionar ao Carrinho
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+                  <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">Nenhum produto detetado na imagem.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Cascade Telemetry - Collapsible */}
+          <details className="bg-slate-900 border border-slate-800 rounded-3xl group">
+            <summary className="p-6 cursor-pointer list-none flex items-center justify-between">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Zap className="w-4 h-4 text-fmcg-amber" />
+                Pipeline de Decisão da Cascata (Telemetria)
+              </h4>
+              <span className="text-xs text-slate-500 font-mono group-open:hidden">▼</span>
+              <span className="text-xs text-slate-500 font-mono hidden group-open:list-item">▲</span>
+            </summary>
+            <div className="px-6 pb-6 space-y-2.5">
               {result.cascadeTelemetry.map((step) => (
                 <div
                   key={step.step}
@@ -274,60 +456,48 @@ export const VisionStudio: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </details>
 
-          {/* Detected Products List */}
-          <div className="space-y-3 pt-4 border-t border-slate-800">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              SKUs Reconhecidos & Busca Vetorial de Equivalentes
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.detectedItems.map((item) => (
-                <div
-                  key={item.sku}
-                  className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
-                      className="w-16 h-16 rounded-xl object-cover border border-slate-700"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono text-brand-400 font-bold">{item.sku}</span>
-                        <span className="text-[10px] font-mono text-slate-300">{(item.confidence * 100).toFixed(0)}% Confiança</span>
-                      </div>
-                      <h5 className="text-xs font-bold text-white truncate mt-1">{item.product.name}</h5>
-                      <p className="text-xs font-mono text-white font-bold mt-1">€{item.product.basePrice.toFixed(2)}</p>
-                    </div>
-                  </div>
-
-                  {item.alternativeSuggestions && item.alternativeSuggestions.length > 0 && (
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                      <span className="text-amber-400 text-[11px] truncate">
-                        Equivalente: {item.alternativeSuggestions[0].name} (€{item.alternativeSuggestions[0].basePrice.toFixed(2)})
-                      </span>
-                      <button
-                        onClick={() => addToCart(item.alternativeSuggestions![0].sku, 1, settings?.preferredSupermarket, 'mcp_tool')}
-                        className="px-2.5 py-1 rounded bg-slate-800 text-[10px] text-white hover:bg-slate-700 font-bold whitespace-nowrap ml-2"
-                      >
-                        Trocar
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => addToCart(item.sku, 1, settings?.preferredSupermarket, 'photo_scanner')}
-                    className="w-full py-2 rounded-xl bg-brand-500/20 text-brand-300 hover:bg-brand-500/30 border border-brand-500/30 text-xs font-bold transition"
-                  >
-                    + Adicionar ao Carrinho da Storefront
-                  </button>
-                </div>
-              ))}
+          {/* Stats Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-brand-400" /> Latência
+              </span>
+              <p className="text-lg font-bold text-white font-mono mt-1">{result.totalLatencyMs}ms</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <DollarSign className="w-3.5 h-3.5 text-brand-400" /> Custo
+              </span>
+              <p className="text-lg font-bold text-brand-400 font-mono mt-1">${result.totalCostUsd.toFixed(6)}</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-fmcg-blue" /> SKUs
+              </span>
+              <p className="text-lg font-bold text-white font-mono mt-1">{result.detectedItems.length}</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-400" /> RGPD
+              </span>
+              <p className="text-xs font-bold text-brand-400 mt-2 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> Efémero
+              </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Empty state - no results yet */}
+      {!result && !isAnalyzing && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center">
+          <Camera className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-slate-400">Selecione um cenário para começar</h3>
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+            Escolha uma fotografia de teste acima e clique para analisar. A IA em cascata irá detetar os produtos automaticamente.
+          </p>
         </div>
       )}
     </div>

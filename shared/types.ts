@@ -169,3 +169,42 @@ export interface UnitEconomicsMetrics {
   supermarketCommissionRevenueEur: number;
   grossTechMarginPercentage: number;
 }
+
+/**
+ * Simplified product shape returned by the vision API — only the fields
+ * the frontend actually consumes (name, image, price, unit, sku).
+ */
+export interface SimpleProduct {
+  sku: string;
+  name: string;
+  imageUrl: string;
+  basePrice: number;
+  unit: string;
+}
+
+export interface SimpleDetectedItem {
+  sku: string;
+  confidence: number;
+  detectionMethod: VisionCascadeMethod;
+  product: SimpleProduct;
+  alternativeSuggestions: SimpleProduct[];
+}
+
+/**
+ * Simplified vision analysis result sent to the frontend.
+ * Strips out heavy fields (variants, supermarketPrices, description, etc.)
+ * that are not needed for the product cards in VisionStudio / FmcgPhotoScanner.
+ */
+export interface SimpleVisionResult {
+  scanId: string;
+  timestamp: number;
+  detectedItems: SimpleDetectedItem[];
+  cascadeTelemetry: CascadeStepTelemetry[];
+  totalLatencyMs: number;
+  totalCostUsd: number;
+  gdprCompliant: {
+    ephemeralMemoryOnly: boolean;
+    facesScrubbedCount: number;
+    exifRemoved: boolean;
+  };
+}

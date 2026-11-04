@@ -17,9 +17,9 @@ const MainLayout: React.FC = () => {
   const { activeToast } = useFmcgContext();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-brand-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-brand-500 selection:text-slate-950">
       {/* Top Header */}
-      <div>
+      <div className="flex-1 flex flex-col min-h-0">
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -48,7 +48,8 @@ const MainLayout: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <main className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
           {activeTab === 'storefront' && (
             <StorefrontView
               onNavigateToPantry={() => setActiveTab('pantry')}
@@ -60,6 +61,7 @@ const MainLayout: React.FC = () => {
           {activeTab === 'mcp' && <McpConsole />}
           {activeTab === 'economics' && <EconomicsDashboard />}
           {activeTab === 'settings' && <SettingsView />}
+        </div>
         </main>
       </div>
 

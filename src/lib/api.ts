@@ -3,7 +3,7 @@ import type {
   CartState, 
   PantryItem, 
   UserFmcgSettings, 
-  VisionAnalysisResult, 
+  SimpleVisionResult,
   UnitEconomicsMetrics,
   StorageLocation
 } from '@shared/types.ts';
@@ -24,7 +24,7 @@ export const api = {
     presetScenarioId?: string;
     forceMethod?: 'barcode' | 'edge_ai' | 'gemini_fallback';
     blurFaces?: boolean;
-  }): Promise<VisionAnalysisResult> {
+  }): Promise<SimpleVisionResult> {
     const res = await fetch(`${API_BASE}/vision/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,21 @@ export const api = {
       const err = await res.json();
       throw new Error(err.error || 'Falha na análise visual');
     }
-    return res.json();
+    const raw = await res.json();
+    // If the response is a flat array (Cloudflare Workers serialization bug),
+    // reconstruct the object by pairing string keys with their values.
+    if (Array.isArray(raw)) {
+      const reconstructed: Record<string, any> = {};
+      for (let i = 0; i < raw.length; i++) {
+        if (typeof raw[i] === 'string' && i + 1 < raw.length) {
+          reconstructed[raw[i]] = raw[i + 1];
+          i++; // skip the value
+        }
+      }
+      console.warn('[API] Reconstructed flat array response:', reconstructed);
+      return reconstructed as SimpleVisionResult;
+    }
+    return raw;
   },
 
   // Pantry

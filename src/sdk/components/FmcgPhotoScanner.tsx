@@ -3,7 +3,7 @@ import { useFmcgService } from '../hooks/useFmcgService.ts';
 import { useMcpCart } from '../hooks/useMcpCart.ts';
 import { usePantryRestock } from '../hooks/usePantryRestock.ts';
 import { api } from '@/lib/api.ts';
-import type { VisionAnalysisResult, VisionCascadeMethod } from '@shared/types.ts';
+import type { SimpleVisionResult, VisionCascadeMethod } from '@shared/types.ts';
 import { 
   Camera, 
   Upload, 
@@ -33,9 +33,15 @@ export const FmcgPhotoScanner: React.FC = () => {
   const [barcodeInput, setBarcodeInput] = useState<string>('5601009901015');
   const [forceMethod, setForceMethod] = useState<VisionCascadeMethod | undefined>(undefined);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisResult, setAnalysisResult] = useState<VisionAnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<SimpleVisionResult | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getValidSupermarket = () => {
+    const pref = settings?.preferredSupermarket;
+    if (pref && pref !== 'cheapest_split') return pref;
+    return undefined;
+  };
 
   if (!isScannerOpen) return null;
 
@@ -73,7 +79,7 @@ export const FmcgPhotoScanner: React.FC = () => {
   const handleAddAllToCart = () => {
     if (!analysisResult) return;
     analysisResult.detectedItems.forEach(item => {
-      addToCart(item.sku, 1, settings?.preferredSupermarket, 'photo_scanner');
+      addToCart(item.sku, 1, getValidSupermarket(), 'photo_scanner');
     });
     closeScanner();
   };
@@ -458,7 +464,7 @@ export const FmcgPhotoScanner: React.FC = () => {
                             </div>
                             <button
                               onClick={() => {
-                                addToCart(item.alternativeSuggestions![0].sku, 1, settings?.preferredSupermarket, 'mcp_tool');
+                                addToCart(item.alternativeSuggestions![0].sku, 1, getValidSupermarket(), 'mcp_tool');
                                 showToast('Alternativa Adicionada', `${item.alternativeSuggestions![0].name} adicionado ao carrinho.`, 'success');
                               }}
                               className="px-2.5 py-1 rounded text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 whitespace-nowrap ml-2"
@@ -473,7 +479,7 @@ export const FmcgPhotoScanner: React.FC = () => {
                       <div className="flex gap-2 pt-1">
                         <button
                           onClick={() => {
-                            addToCart(item.sku, 1, settings?.preferredSupermarket, 'photo_scanner');
+                            addToCart(item.sku, 1, getValidSupermarket(), 'photo_scanner');
                           }}
                           className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-brand-500/20 text-brand-300 hover:bg-brand-500/30 border border-brand-500/30 transition text-center"
                         >
