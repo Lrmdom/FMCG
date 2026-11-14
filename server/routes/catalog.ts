@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { FmcgProduct } from '../../shared/types.ts';
 import { VectorSearchService } from '../services/vector-search.ts';
+import { CatalogService } from '../services/catalog-service.ts';
 
 // Add AI and VECTORIZE to Bindings
 export const catalogRouter = new Hono<{ 
@@ -13,8 +14,13 @@ export const catalogRouter = new Hono<{
 
 catalogRouter.get('/', async (c) => {
   const lang = c.req.query('lang') || 'pt';
-  const catalog = await c.env.FILESYSTEM_BUCKET.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>());
-  if (!catalog) return c.json([]);
+  const bucket = c.env?.FILESYSTEM_BUCKET;
+  let catalog: FmcgProduct[];
+  if (!bucket || typeof bucket.get !== 'function') {
+    catalog = await CatalogService.getCatalog(lang);
+  } else {
+    catalog = await bucket.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>()) || [];
+  }
   
   const category = c.req.query('category');
   if (category) {
@@ -43,7 +49,13 @@ catalogRouter.post('/vector-search', async (c) => {
 catalogRouter.get('/barcode/:ean', async (c) => {
   const ean = c.req.param('ean');
   const lang = c.req.query('lang') || 'pt';
-  const catalog = await c.env.FILESYSTEM_BUCKET.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>());
+  const bucket = c.env?.FILESYSTEM_BUCKET;
+  let catalog: FmcgProduct[];
+  if (!bucket || typeof bucket.get !== 'function') {
+    catalog = await CatalogService.getCatalog(lang);
+  } else {
+    catalog = await bucket.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>()) || [];
+  }
   const product = catalog?.find(p => p.ean === ean);
   if (!product) {
     return c.json({ error: 'Produto não encontrado para este código de barras' }, 404);
@@ -56,11 +68,12 @@ catalogRouter.get('/:sku', async (c) => {
   const sku = c.req.param('sku');
   const lang = c.req.query('lang') || 'pt';
   const bucket = c.env?.FILESYSTEM_BUCKET;
-  if (!bucket) {
-    console.error('R2 binding FILESYSTEM_BUCKET missing. Ensure you are running with wrangler dev.');
-    return c.json({ error: 'Storage backend not configured' }, 500);
+  let catalog: FmcgProduct[];
+  if (!bucket || typeof bucket.get !== 'function') {
+    catalog = await CatalogService.getCatalog(lang);
+  } else {
+    catalog = await bucket.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>()) || [];
   }
-  const catalog = await bucket.get(`asualoja-sanity-data-${lang}.json`).then(o => o?.json<FmcgProduct[]>());
   const product = catalog?.find(p => p.sku === sku);
   if (!product) {
     return c.json({ error: 'Produto não encontrado' }, 404);

@@ -20,12 +20,13 @@ export class CartEngine {
   }
 
   public static async addItem(params: {
-    cartId: string;
+    cartId?: string;
     sku: string;
     quantity?: number;
     addedBy?: CartLineItem['addedBy'];
     supermarket?: 'Continente' | 'Pingo Doce' | 'Auchan' | 'Mercadona';
   }): Promise<{ success: boolean; lineItem: CartLineItem; cart: CartState }> {
+    const cartId = params.cartId || this.cart.id || 'cart-session-001';
     const qty = params.quantity && params.quantity > 0 ? params.quantity : 1;
     const product = FMCG_CATALOG.find(p => p.sku === params.sku);
     if (!product) {
@@ -37,7 +38,7 @@ export class CartEngine {
     const unitPrice = smPriceObj?.promoPrice || smPriceObj?.price || product.basePrice;
 
     // Mutação Commerce Layer usando o cartId dinâmico
-    await CommerceLayerService.createLineItem(params.cartId, params.sku, qty);
+    await CommerceLayerService.createLineItem(cartId, params.sku, qty);
 
     const existingIdx = this.cart.items.findIndex(i => i.sku === params.sku && i.selectedSupermarket === sm);
     let lineItem: CartLineItem;

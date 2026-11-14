@@ -51,8 +51,9 @@ app.get('/', (c) => {
   });
 });
 
-// Start server if running in Node.js
-if (typeof process !== 'undefined' && process.versions?.node) {
+// Start server if running in Node.js (not Cloudflare Workers)
+const isWorkers = typeof WebSocketPair !== 'undefined' || typeof caches !== 'undefined';
+if (!isWorkers && typeof process !== 'undefined' && process.versions?.node) {
   serve({ fetch: app.fetch, port: 3001 });
   console.log('Server running at http://localhost:3000');
 }

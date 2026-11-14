@@ -75,9 +75,14 @@ export class CatalogService {
   }
 
   private static extractProducts(rawData: any): FmcgProduct[] {
-  if (!rawData) return [];
+    if (!rawData) return [];
 
-  const result: FmcgProduct[] = [];
+    // Se já for uma lista plana de produtos
+    if (Array.isArray(rawData) && rawData[0]?.sku) {
+      return rawData.map(p => this.mapToFmcgProduct(p));
+    }
+
+    const result: FmcgProduct[] = [];
 
   const extractProductNode = (node: any) => {
     if (!node || typeof node !== 'object') return;
@@ -136,6 +141,11 @@ export class CatalogService {
       return;
     }
 
+    if (this.isProductNode(node)) {
+      extractProductNode(node);
+      return;
+    }
+
     // ---------------------------------------------------------
     // PRODUCTS
     // ---------------------------------------------------------
@@ -163,11 +173,21 @@ export class CatalogService {
   return result;
 }
 
-  public static async getCatalog(locale: string = 'pt'): Promise<FmcgProduct[]> {
+  private static catalogCache: Map<string, { data: FmcgProduct[]; timestamp: number }> = new Map();
+  private static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+  public static async getCatalog(locale: string = 'en'): Promise<FmcgProduct[]> {
+    const cached = this.catalogCache.get(locale);
+    if (cached && (Date.now() - cached.timestamp < this.CACHE_TTL_MS)) {
+      return cached.data;
+    }
+
     const s3Client = this.getS3Client();
     if (!s3Client) {
       console.warn("R2 not configured. Using fallback catalog.");
-      return this.extractProducts(FMCG_CATALOG);
+      const fallback = this.extractProducts(FMCG_CATALOG);
+      this.catalogCache.set(locale, { data: fallback, timestamp: Date.now() });
+      return fallback;
     }
 
     const command = new GetObjectCommand({
@@ -179,14 +199,18 @@ export class CatalogService {
       const response = await s3Client.send(command);
       const str = await response.Body!.transformToString();
       const rawData = JSON.parse(str);
-      return this.extractProducts(rawData);
+      const products = this.extractProducts(rawData);
+      this.catalogCache.set(locale, { data: products, timestamp: Date.now() });
+      return products;
     } catch (error) {
       console.error("Error fetching catalog from R2, using fallback:", error);
-      return this.extractProducts(FMCG_CATALOG);
+      const fallback = this.extractProducts(FMCG_CATALOG);
+      this.catalogCache.set(locale, { data: fallback, timestamp: Date.now() });
+      return fallback;
     }
   }
 
-  public static async search(query: string, locale: string = 'pt'): Promise<FmcgProduct[]> {
+  public static async search(query: string, locale: string = 'en'): Promise<FmcgProduct[]> {
     const catalog = await this.getCatalog(locale);
     if (!catalog) return [];
 

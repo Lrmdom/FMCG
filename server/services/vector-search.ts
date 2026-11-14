@@ -11,8 +11,8 @@ export class VectorSearchService {
   /**
    * Obtém o catálogo estático. Se o bucket R2 contiver o JSON, extrai e achata a árvore de taxons.
    */
-  private static async getCatalog(env?: VectorSearchEnv, locale: string = 'pt'): Promise<FmcgProduct[]> {
-    if (!env?.FILESYSTEM_BUCKET) {
+  private static async getCatalog(env?: VectorSearchEnv, locale: string = 'en'): Promise<FmcgProduct[]> {
+    if (!env?.FILESYSTEM_BUCKET || typeof env.FILESYSTEM_BUCKET.get !== 'function') {
       return FMCG_CATALOG;
     }
 
@@ -54,7 +54,10 @@ export class VectorSearchService {
    * Gera o embedding de forma segura usando o modelo BGE-M3 (Multilíngue)
    */
   private static async generateEmbedding(ai: Ai, text: string): Promise<number[]> {
-    const response = await ai.run('@cf/bge-m3', { text: [text] }) as { data?: number[][] };
+    if (!ai || typeof ai.run !== 'function') {
+      throw new Error('Workers AI (ai.run) não está disponível neste ambiente');
+    }
+    const response = await ai.run('@cf/baai/bge-base-en-v1.5', { text: [text] }) as { data?: number[][] };
     if (!response?.data?.[0]) {
       throw new Error('Falha na geração do embedding via Workers AI');
     }
@@ -67,11 +70,15 @@ export class VectorSearchService {
   public static async vectorSearch(
     env: VectorSearchEnv,
     query: string,
-    locale: string = 'pt',
+    locale: string = 'en',
     topK: number = 5
   ): Promise<FmcgProduct[]> {
     const q = query.trim();
     if (!q) return [];
+
+    if (!env?.AI || typeof env.AI.run !== 'function' || !env?.VECTORIZE || typeof env.VECTORIZE.query !== 'function') {
+      return this.searchByQuery(env, query, topK);
+    }
 
     try {
       // 1. Gera embedding com o modelo multilíngue
@@ -83,6 +90,14 @@ export class VectorSearchService {
         returnMetadata: 'indexed',
         filter: locale ? { locale: { $eq: locale } } : undefined
       });
+      // If no results with locale filter, retry without it
+      if (!matches.matches?.length && locale) {
+        const retry = await env.VECTORIZE.query(queryVector, {
+          topK,
+          returnMetadata: 'indexed'
+        });
+        return retry.matches || [];
+      }
 
       if (!matches.matches?.length) return [];
 
@@ -92,8 +107,8 @@ export class VectorSearchService {
       const matchedProducts = matches.matches
         .map(match => {
           const meta = match.metadata as Record<string, any> | undefined;
-          
-          return catalog.find(p => 
+
+          return catalog.find(p =>
             (meta?.sku && p.sku === meta.sku) ||
             p.sku === match.id ||
             p.title === meta?.title ||
@@ -149,8 +164,8 @@ export class VectorSearchService {
         const results = matches.matches
           .map(m => {
             const meta = m.metadata as Record<string, any> | undefined;
-            const product = catalog.find(p => 
-              p.sku === m.id || 
+            const product = catalog.find(p =>
+              p.sku === m.id ||
               (meta?.sku && p.sku === meta.sku) ||
               p.title === meta?.title
             );

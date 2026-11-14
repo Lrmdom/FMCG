@@ -204,7 +204,28 @@ export class CascadeEngine {
               if (aiExtractedText) break;
 
               const isLlava = modelName.includes('llava');
-              const promptText = "Extract product details (type, brand, model, description) from image. ReturnONLY JSON object with keys: productType, brand, model, description.";
+              const promptText = `You are an expert product detail extraction agent.
+
+Analyze the product image carefully. Extract:
+- productType
+- brand
+- model
+- description
+
+Rules:
+1. Return ONLY valid JSON. No markdown, no explanations, no filler.
+2. If a value is missing or uncertain, output null. Do NOT guess or hallucinate.
+3. Examples:
+   - Image of generic detergent -> {"productType": "detergent", "brand": null, "model": null, "description": "Generic detergent container"}
+   - Image of Apple iPhone 15 -> {"productType": "smartphone", "brand": "Apple", "model": "iPhone 15", "description": "Apple iPhone 15 smartphone"}
+
+Return JSON object:
+{
+  "productType": "string | null",
+  "brand": "string | null",
+  "model": "string | null",
+  "description": "string | null"
+}`;
 
               // ---- AI Binding ----
               if (aiBinding) {
@@ -295,7 +316,28 @@ export class CascadeEngine {
               for (const modelName of visionModels) {
                 if (aiExtractedText) break;
                 const isLlava = modelName.includes('llava');
-                const promptText = "Extract product type (e.g. bicycle), bike type, brand and description from this image. Return ONLY a JSON object with keys: productType, bikeType, brand, description.";
+                const promptText = `You are an expert product detail extraction agent.
+
+Analyze the product image carefully. Extract:
+- productType
+- brand
+- model
+- description
+
+Rules:
+1. Return ONLY valid JSON. No markdown, no explanations, no filler.
+2. If a value is missing or uncertain, output null. Do NOT guess or hallucinate.
+3. Examples:
+   - Image of generic detergent -> {"productType": "detergent", "brand": null, "model": null, "description": "Generic detergent container"}
+   - Image of Apple iPhone 15 -> {"productType": "smartphone", "brand": "Apple", "model": "iPhone 15", "description": "Apple iPhone 15 smartphone"}
+
+Return JSON object:
+{
+  "productType": "string | null",
+  "brand": "string | null",
+  "model": "string | null",
+  "description": "string | null"
+}`;
                 try {
                   let response: any;
                   if (isLlava) {
@@ -335,14 +377,14 @@ export class CascadeEngine {
 
     const presetScenario = PRESET_VISION_SCENARIOS.find(p => p.id === params.presetScenarioId) || PRESET_VISION_SCENARIOS[0];
 
-    let parsedAiData = { title: 'Extraído por Cloudflare Workers AI', description: aiExtractedText };
+    let parsedAiData = { title: 'Extraído por Cloudflare Workers AI', description: aiExtractedText || '' };
 
     if (aiExtractedText) {
       try {
         const cleanedJson = aiExtractedText.replace(/```json/g, '').replace(/```/g, '');
         const jsonData = JSON.parse(cleanedJson);
         parsedAiData = {
-          title: `${jsonData.productType || ''} ${jsonData.bikeType || ''} ${jsonData.brand || ''}`.trim() || 'Extraído por Cloudflare Workers AI',
+          title: `${jsonData.productType || ''} ${jsonData.model || ''} ${jsonData.brand || ''}`.trim() || 'Extraído por Cloudflare Workers AI',
           description: jsonData.description || aiExtractedText
         };
         console.log("parsedAiData: ", parsedAiData)
@@ -396,20 +438,27 @@ export class CascadeEngine {
         details: 'Ignorado (confiança da Edge foi suficiente).',
       });
 
-      const catalog = await CatalogService.getCatalog(params.lang);
-      const matchedProducts = this.matchProductsByTitle(catalog, scenario);
+      // 1. Busca Semântica via Vetores (Primary Retrieval)
+      const queryText = `${scenario.title || ''} ${scenario.description || ''}`.trim();
+
+      // Constrói o ambiente necessário para a busca vetorial (usando env passado)
+      // Verifica se env contém os campos necessários, caso contrário, passa null
+      const vectorEnv = (env && env.AI && typeof (env.AI as any).run === 'function' && env.VECTORIZE && typeof (env.VECTORIZE as any).query === 'function')
+        ? { AI: env.AI, VECTORIZE: env.VECTORIZE, FILESYSTEM_BUCKET: env.FILESYSTEM_BUCKET }
+        : null;
+
+      const candidateProducts = vectorEnv
+        ? await VectorSearchService.vectorSearch(vectorEnv, queryText, params.lang || 'en', 10)
+        : await VectorSearchService.searchByQuery(queryText, 10);
+
+      // 2. Reranking Semântico-Tokenizado (Refinement)
+      const matchedProducts = this.rerankProducts(candidateProducts, scenario);
 
       const detectedItems = await Promise.all(matchedProducts.map(async (prod, idx) => {
-        let equivalents: FmcgProduct[] = [];
-        if (prod.variants && prod.variants.length > 0) {
-          const variantEquivalents = await Promise.all(
-            prod.variants.map(v => VectorSearchService.findEquivalents(v.title || '', 3))
-          );
-          equivalents = Array.from(new Set(variantEquivalents.flat().map(e => e.product.sku)))
-            .map(sku => variantEquivalents.flat().find(e => e.product.sku === sku)!.product);
-        } else {
-          equivalents = (await VectorSearchService.findEquivalents(prod.title || '', 5)).map(e => e.product);
-        }
+        // Busca de Equivalentes/Sugestões (Contextualizada por RAG)
+        const equivalents = vectorEnv
+          ? await VectorSearchService.findEquivalents(vectorEnv, prod.sku, 5)
+          : await VectorSearchService.findEquivalents(prod.sku, 5);
 
         const box: DetectedBoundingBox = {
           x: 18 + idx * 35,
@@ -428,7 +477,7 @@ export class CascadeEngine {
           confidence: edgeConfidence,
           boundingBox: box,
           detectionMethod: 'edge_ai' as VisionCascadeMethod,
-          alternativeSuggestions: equivalents,
+          alternativeSuggestions: equivalents.map(e => e.product),
         };
       }));
       //console.log('>>>>>>>>>>>>>>>>>>>>>>> detectedItems:', JSON.stringify(detectedItems, null, 2))
@@ -580,11 +629,18 @@ export class CascadeEngine {
   }
 
 
+  private static rerankProducts(
+    products: FmcgProduct[],
+    scenario: { title?: string; description?: string }
+  ): FmcgProduct[] {
+    // Reutiliza a lógica central de pontuação, mas agora operando sobre candidatos já filtrados
+    return this.matchProductsByTitle(products, scenario);
+  }
+
   private static matchProductsByTitle(
     catalog: FmcgProduct[],
     scenario: { title?: string; description?: string }
   ): FmcgProduct[] {
-
     if (!catalog?.length) {
       console.log('[DEBUG] Catálogo vazio ou indefinido.');
       return [];
@@ -627,69 +683,38 @@ export class CascadeEngine {
     const titleTokens = extractTokens(scenario?.title || '');
     const descriptionTokens = extractTokens(scenario?.description || '');
 
-
-
     if (!titleTokens.length && !descriptionTokens.length) {
       console.log('[DEBUG] Nenhum token válido extraído do cenário.');
       return [];
     }
 
-    const matched = catalog
-      .map((product, index) => {
+    return catalog
+      .map((product) => {
         const titles: string[] = [];
-
         const collectTitles = (obj: any) => {
           if (!obj) return;
           if (typeof obj.title === 'string') titles.push(obj.title);
           if (typeof obj.name === 'string') titles.push(obj.name);
           if (Array.isArray(obj.variants)) obj.variants.forEach(collectTitles);
         };
-
         collectTitles(product);
-
         const productTokens = extractTokens(titles.join(' '));
 
         let titleMatches = 0;
         for (const token of titleTokens) {
-          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
-            titleMatches++;
-          }
+          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) titleMatches++;
         }
 
         let descMatches = 0;
         for (const token of descriptionTokens) {
-          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) {
-            descMatches++;
-          }
+          if (productTokens.some(pToken => pToken.includes(token) || token.includes(pToken))) descMatches++;
         }
 
         const totalScore = (titleMatches * 3) + descMatches;
-        console.log('totalScore: ', totalScore, 'titleMatches: ', titleMatches, 'descMatches: ', descMatches, 'product: ', product)
-
-        const isValid = totalScore > 3;
-
-
-
-        return {
-          product,
-          isValid,
-          titleMatches,
-          descMatches,
-          totalScore
-        };
+        return { product, totalScore, titleMatches, descMatches };
       })
-      .filter(item => item.isValid)
-      .sort((a, b) => {
-        if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-        if (b.titleMatches !== a.titleMatches) return b.titleMatches - a.titleMatches;
-        return b.descMatches - a.descMatches;
-      })
+      .sort((a, b) => b.totalScore - a.totalScore)
       .map(item => item.product);
-
-    console.log('[DEBUG] Resultado Final (Matches):', matched);
-    console.log('=============================');
-
-    return matched;
   }
 
 
